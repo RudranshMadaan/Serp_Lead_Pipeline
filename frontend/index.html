@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IT Outsourcing — Lead Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1f2937; --ink-2:#374151; --muted:#6b7280; --line:#d9dee5;
+    --line-2:#e8ebf0; --bg:#f4f5f7; --panel:#ffffff; --accent:#1f3a5f;
+    --accent-2:#2c5282; --ok:#1b7f4b; --ok-bg:#d8f0e0; --warn-bg:#fdeecb;
+    --bad-bg:#f7d9cc; --field:#fcfcfd;
+    --sans:"IBM Plex Sans",-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:13px;line-height:1.45;}
+  .app{display:grid;grid-template-columns:344px 1fr;height:100vh;}
+
+  /* ---- Sidebar ---- */
+  .side{background:var(--panel);border-right:1px solid var(--line);
+        display:flex;flex-direction:column;overflow:hidden;}
+  .brand{padding:16px 18px;border-bottom:1px solid var(--line);}
+  .brand h1{font-size:14px;font-weight:700;letter-spacing:.02em;margin:0;}
+  .brand p{margin:4px 0 0;color:var(--muted);font-size:11px;}
+  .side-scroll{overflow-y:auto;padding:16px 18px 90px;flex:1;}
+  .group{margin-bottom:18px;}
+  .group > label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;
+        letter-spacing:.04em;color:var(--ink-2);margin-bottom:6px;}
+  .hint{color:var(--muted);font-size:11px;margin:4px 0 0;}
+  textarea,input[type=number]{width:100%;font-family:var(--mono);font-size:12px;
+        border:1px solid var(--line);background:var(--field);color:var(--ink);
+        padding:8px 9px;border-radius:2px;}
+  textarea{min-height:150px;resize:vertical;line-height:1.5;}
+  textarea:focus,input:focus{outline:none;border-color:var(--accent-2);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .chk{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12px;cursor:pointer;}
+  .chk input{accent-color:var(--accent);}
+  .platforms{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;}
+  .runbar{position:absolute;bottom:0;left:0;width:344px;background:var(--panel);
+        border-top:1px solid var(--line);border-right:1px solid var(--line);
+        padding:12px 18px;}
+  button.run{width:100%;background:var(--accent);color:#fff;border:1px solid var(--accent);
+        font-family:var(--sans);font-weight:600;font-size:13px;padding:10px 12px;
+        border-radius:2px;cursor:pointer;letter-spacing:.02em;}
+  button.run:hover{background:var(--accent-2);}
+  button.run:disabled{background:#9aa6b2;border-color:#9aa6b2;cursor:not-allowed;}
+
+  /* ---- Main ---- */
+  .main{display:flex;flex-direction:column;overflow:hidden;}
+  .topbar{height:46px;display:flex;align-items:center;gap:12px;padding:0 18px;
+        background:var(--panel);border-bottom:1px solid var(--line);}
+  .topbar .stage{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .badge{font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 8px;
+        border:1px solid var(--line);border-radius:2px;}
+  .badge.mock{background:#fdeecb;border-color:#e6c560;color:#7a5b06;}
+  .badge.live{background:#d8f0e0;border-color:#86c79f;color:#13643c;}
+  .counts{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .content{flex:1;overflow:auto;padding:16px 18px;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:2px;margin-bottom:16px;}
+  .panel h2{margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+        color:var(--ink-2);padding:10px 14px;border-bottom:1px solid var(--line-2);
+        display:flex;align-items:center;gap:10px;}
+  .log{font-family:var(--mono);font-size:12px;white-space:pre-wrap;padding:12px 14px;
+        max-height:220px;overflow:auto;color:var(--ink-2);}
+  .log .err{color:#b42318;}
+
+  .tablewrap{overflow:auto;}
+  .tabletools{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-2);}
+  .tabletools input{flex:0 0 240px;font-family:var(--sans);font-size:12px;padding:6px 9px;
+        border:1px solid var(--line);border-radius:2px;background:var(--field);}
+  a.dl{margin-left:auto;text-decoration:none;background:var(--ink);color:#fff;font-weight:600;
+        font-size:12px;padding:7px 14px;border-radius:2px;border:1px solid var(--ink);}
+  a.dl[aria-disabled=true]{background:#c3c9d1;border-color:#c3c9d1;pointer-events:none;}
+  table{border-collapse:collapse;width:100%;font-size:12px;}
+  th,td{border-bottom:1px solid var(--line-2);padding:7px 10px;text-align:left;vertical-align:top;}
+  th{position:sticky;top:0;background:var(--ink);color:#fff;font-weight:600;font-size:11px;
+        white-space:nowrap;cursor:pointer;user-select:none;}
+  th:hover{background:var(--ink-2);}
+  td.num,th.num{font-family:var(--mono);text-align:right;}
+  tr:hover td{background:#f7f9fb;}
+  .score{font-family:var(--mono);font-weight:600;text-align:center;width:46px;border-radius:2px;}
+  .s-hi{background:var(--ok-bg);} .s-mid{background:var(--warn-bg);} .s-lo{background:var(--bad-bg);}
+  .pill{font-size:11px;border:1px solid var(--line);border-radius:2px;padding:1px 6px;color:var(--ink-2);}
+  .empty{padding:40px;text-align:center;color:var(--muted);font-size:13px;}
+  code{font-family:var(--mono);background:#eef1f4;padding:1px 5px;border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="side">
+    <div class="brand">
+      <h1>IT Outsourcing — Lead Pipeline</h1>
+      <p>Google Jobs → filter → Apollo → Excel</p>
+    </div>
+    <div class="side-scroll">
+      <div class="group">
+        <label>Role queries (one per line)</label>
+        <textarea id="queries" spellcheck="false"></textarea>
+        <p class="hint">Each line is a separate Google Jobs search. Edit to match the stacks you service.</p>
+      </div>
+
+      <div class="group">
+        <label>Source platforms</label>
+        <div class="platforms" id="platforms">
+          <label class="chk"><input type="checkbox" value="linkedin">LinkedIn</label>
+          <label class="chk"><input type="checkbox" value="wellfound">Wellfound</label>
+          <label class="chk"><input type="checkbox" value="indeed">Indeed</label>
+          <label class="chk"><input type="checkbox" value="glassdoor">Glassdoor</label>
+          <label class="chk"><input type="checkbox" value="ziprecruiter">ZipRecruiter</label>
+          <label class="chk"><input type="checkbox" value="dice">Dice</label>
+        </div>
+        <p class="hint">None checked = any platform.</p>
+      </div>
+
+      <div class="group">
+        <label>Recency window</label>
+        <div class="row2">
+          <div>
+            <input type="number" id="maxHours" min="1" value="24">
+            <p class="hint">hours</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Employee size band</label>
+        <div class="row2">
+          <div><input type="number" id="minEmp" value="20"><p class="hint">min</p></div>
+          <div><input type="number" id="maxEmp" value="500"><p class="hint">max (drops enterprises)</p></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Options</label>
+        <label class="chk"><input type="checkbox" id="dropStaffing" checked>Drop staffing / IT-services middlemen</label>
+        <label class="chk"><input type="checkbox" id="enrichPeople">Look up leadership contacts (Apollo credits)</label>
+      </div>
+    </div>
+    <div class="runbar">
+      <button class="run" id="runBtn">Run pipeline</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <span class="stage" id="stage">idle</span>
+      <span class="badge" id="modeBadge">…</span>
+      <span class="counts" id="counts"></span>
+    </div>
+    <div class="content">
+      <div class="panel">
+        <h2>Run log</h2>
+        <div class="log" id="log">Configure the run on the left, then press <b>Run pipeline</b>.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Prospects</h2>
+        <div class="tabletools">
+          <input id="filter" placeholder="Filter rows (company, industry, role…)">
+          <a class="dl" id="downloadBtn" aria-disabled="true" href="#">Download .xlsx</a>
+        </div>
+        <div class="tablewrap">
+          <table id="tbl">
+            <thead><tr id="thead"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div class="empty" id="empty">No results yet.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const COLS = [
+  ["prospect_score","Score","num"], ["company_name","Company",""],
+  ["job_title","Job Title (H1)",""], ["role_bucket","Role",""],
+  ["roles_count","Roles","num"], ["source_platform","Platform",""],
+  ["posted_at","Posted",""], ["industry","Industry",""],
+  ["it_native_label","IT?",""], ["estimated_employees","Emp.","num"],
+  ["annual_revenue_label","Revenue",""], ["founded_year","Founded","num"],
+  ["domain","Domain",""], ["lead_name","Lead",""], ["lead_title","Lead Title",""],
+  ["flags","Flags",""],
+];
+let ROWS=[], sortKey="prospect_score", sortDir=-1, pollTimer=null;
+let AUTH_REQUIRED=false, PW="";
+
+function $(id){return document.getElementById(id);}
+function authHeaders(){
+  const h={"Content-Type":"application/json"};
+  if(AUTH_REQUIRED && PW) h["X-App-Password"]=PW;
+  return h;
+}
+function ensurePw(){
+  if(AUTH_REQUIRED && !PW){ PW = prompt("Enter app password:") || ""; }
+}
+
+async function init(){
+  const cfg = await (await fetch("/api/config")).json();
+  $("queries").value = cfg.default_queries.join("\n");
+  $("maxHours").value = cfg.defaults.max_hours;
+  $("minEmp").value = cfg.defaults.min_employees;
+  $("maxEmp").value = cfg.defaults.max_employees;
+  AUTH_REQUIRED = cfg.auth_required;
+  const b = $("modeBadge");
+  b.textContent = cfg.mode_label;
+  b.className = "badge " + (cfg.badge==="live" ? "live" : "mock");
+  buildHead();
+}
+
+function buildHead(){
+  $("thead").innerHTML = COLS.map(([k,label,cls])=>
+    `<th class="${cls}" data-k="${k}">${label}${k===sortKey?(sortDir<0?" ▾":" ▴"):""}</th>`).join("");
+  [...$("thead").children].forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    if(k===sortKey) sortDir*=-1; else { sortKey=k; sortDir=-1; }
+    buildHead(); renderRows();
+  });
+}
+
+function scoreClass(s){ return s>=70?"s-hi":s>=45?"s-mid":"s-lo"; }
+
+function renderRows(){
+  const q = $("filter").value.toLowerCase();
+  let rows = ROWS.filter(r => !q || COLS.some(([k])=>String(r[k]??"").toLowerCase().includes(q)));
+  rows.sort((a,b)=>{
+    let x=a[sortKey], y=b[sortKey];
+    if(typeof x==="number"||typeof y==="number"){x=+x||0;y=+y||0;return (x-y)*sortDir;}
+    return String(x??"").localeCompare(String(y??""))*sortDir;
+  });
+  $("empty").style.display = rows.length ? "none" : "block";
+  $("tbody").innerHTML = rows.map(r=>"<tr>"+COLS.map(([k,_l,cls])=>{
+    if(k==="prospect_score")
+      return `<td class="score ${scoreClass(r[k])}">${r[k]}</td>`;
+    if(k==="role_bucket")
+      return `<td><span class="pill">${r[k]||""}</span></td>`;
+    return `<td class="${cls}">${escapeHtml(r[k])}</td>`;
+  }).join("")+"</tr>").join("");
+}
+
+function escapeHtml(v){return String(v??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function selectedPlatforms(){
+  return [...$("platforms").querySelectorAll("input:checked")].map(i=>i.value);
+}
+
+async function run(){
+  const body = {
+    queries: $("queries").value.split("\n").map(s=>s.trim()).filter(Boolean),
+    platforms: selectedPlatforms(),
+    max_hours: +$("maxHours").value,
+    min_employees: +$("minEmp").value,
+    max_employees: +$("maxEmp").value,
+    enrich_people: $("enrichPeople").checked,
+    drop_staffing: $("dropStaffing").checked,
+  };
+  $("runBtn").disabled=true; $("runBtn").textContent="Running…";
+  $("log").textContent=""; ROWS=[]; renderRows();
+  $("downloadBtn").setAttribute("aria-disabled","true");
+  ensurePw();
+  const res = await (await fetch("/api/run",{method:"POST",
+    headers:authHeaders(),body:JSON.stringify(body)})).json();
+  if(!res.job_id){
+    $("log").textContent="Error starting run (auth?). "+JSON.stringify(res);
+    $("runBtn").disabled=false; $("runBtn").textContent="Run pipeline"; return;
+  }
+  poll(res.job_id);
+}
+
+function poll(id){
+  clearInterval(pollTimer);
+  pollTimer=setInterval(async ()=>{
+    const j = await (await fetch("/api/jobs/"+id,{headers:authHeaders()})).json();
+    $("stage").textContent = "stage: "+j.stage;
+    $("log").innerHTML = j.log.map(l=>l.includes("FATAL")||l.includes(" ! ")
+      ? `<span class="err">${escapeHtml(l)}</span>` : escapeHtml(l)).join("\n");
+    const lg=$("log"); lg.scrollTop=lg.scrollHeight;
+    if(j.counts && j.counts.companies!=null)
+      $("counts").textContent =
+        `${j.counts.postings} postings · ${j.counts.companies} companies · ${j.counts.kept} kept`;
+    if(j.rows && j.rows.length){ ROWS=j.rows; renderRows(); }
+    if(j.status==="done"||j.status==="error"){
+      clearInterval(pollTimer);
+      $("runBtn").disabled=false; $("runBtn").textContent="Run pipeline";
+      if(j.download){
+        const dl=$("downloadBtn");
+        dl.href = j.download + (AUTH_REQUIRED && PW ? "?pw="+encodeURIComponent(PW) : "");
+        dl.setAttribute("aria-disabled","false");
+        dl.setAttribute("download", j.result_name||"prospects.xlsx");
+      }
+    }
+  },1200);
+}
+
+$("runBtn").onclick=run;
+$("filter").oninput=renderRows;
+init();
+</script>
+</body>
+</html>

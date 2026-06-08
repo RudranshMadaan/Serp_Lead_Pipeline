@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: it-outsourcing-lead-pipeline
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SERPAPI_KEY
+        sync: false        # you set this in the Render dashboard
+      - key: APOLLO_KEY
+        sync: false
+      - key: MOCK_MODE
+        value: "false"
