@@ -28,10 +28,13 @@ JOBS = {}  # in-memory store; fine for single-user local use
 class RunParams(BaseModel):
     queries: List[str]
     platforms: List[str] = []
+    country: str = "United States"
+    remote: bool = True
     max_hours: int = config.DEFAULT_MAX_HOURS
     min_employees: int = config.DEFAULT_MIN_EMPLOYEES
     max_employees: int = config.DEFAULT_MAX_EMPLOYEES
     enrich_people: bool = False
+    enrich_web: bool = False
     drop_staffing: bool = True
 
 
@@ -53,6 +56,7 @@ def get_config():
         "badge": badge,
         "auth_required": bool(config.APP_PASSWORD),
         "default_queries": config.DEFAULT_ROLE_QUERIES,
+        "countries": list(config.COUNTRY_OPTIONS.keys()),
         "defaults": {
             "max_hours": config.DEFAULT_MAX_HOURS,
             "min_employees": config.DEFAULT_MIN_EMPLOYEES,
