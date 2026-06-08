@@ -43,19 +43,32 @@ APOLLO_BASE = "https://api.apollo.io/v1"
 # ---- Default role queries (the kinds of hiring you can service) --------------
 # Edit freely in the UI; this is just the starting set.
 DEFAULT_ROLE_QUERIES = [
-    "remote software developer",
-    "remote backend developer",
-    "remote frontend developer",
-    "remote full stack developer",
-    "remote react developer",
-    "remote node js developer",
-    "remote python developer",
-    "remote devops engineer",
-    "remote ui ux designer",
-    "remote qa engineer",
-    "remote mobile app developer",
-    "remote data engineer",
+    "software developer",
+    "backend developer",
+    "frontend developer",
+    "full stack developer",
+    "react developer",
+    "node js developer",
+    "python developer",
+    "devops engineer",
+    "ui ux designer",
+    "qa engineer",
+    "mobile app developer",
+    "data engineer",
 ]
+
+# Country -> SerpApi geo settings. Used by the UI dropdown so you don't type
+# "in US" into the query.
+COUNTRY_OPTIONS = {
+    "United States": {"gl": "us", "location": "United States"},
+    "United Kingdom": {"gl": "uk", "location": "United Kingdom"},
+    "Canada": {"gl": "ca", "location": "Canada"},
+    "Australia": {"gl": "au", "location": "Australia"},
+    "India": {"gl": "in", "location": "India"},
+    "Germany": {"gl": "de", "location": "Germany"},
+    "Netherlands": {"gl": "nl", "location": "Netherlands"},
+    "Singapore": {"gl": "sg", "location": "Singapore"},
+}
 
 # Maps raw job titles to a normalized "role offered" bucket for the sheet.
 ROLE_BUCKETS = {
