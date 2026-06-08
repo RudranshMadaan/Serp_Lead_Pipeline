@@ -10,7 +10,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: SERPAPI_KEY
-        sync: false
+        sync: false        # you set this in the Render dashboard
       - key: APOLLO_KEY
         sync: false
       - key: MOCK_MODE
