@@ -35,11 +35,13 @@ def _client():
     return httpx.Client(timeout=40.0)
 
 
-def search_jobs(query: str, log=print):
+def search_jobs(query: str, gl=None, location=None, remote=True, log=print):
     """Return a list of raw job dicts for one role query, paginated."""
     if config.SERPAPI_MOCK:
         return _mock_jobs(query)
 
+    gl = gl or config.SERPAPI_GL
+    location = location or config.SERPAPI_LOCATION
     results = []
     next_token = None
     pages = 0
@@ -49,10 +51,12 @@ def search_jobs(query: str, log=print):
                 "engine": "google_jobs",
                 "q": query,
                 "hl": config.SERPAPI_HL,
-                "gl": config.SERPAPI_GL,
-                "location": config.SERPAPI_LOCATION,
+                "gl": gl,
+                "location": location,
                 "api_key": config.SERPAPI_KEY,
             }
+            if remote:
+                params["ltype"] = "1"   # Google Jobs "work from home" filter
             if next_token:
                 params["next_page_token"] = next_token
             try:
@@ -109,6 +113,135 @@ def _first_time_extension(exts):
         if any(w in e.lower() for w in ("ago", "posted", "just")):
             return e
     return None
+
+
+# ---------------------------------------------------------------------------
+# Web enrichment via the regular Google engine (uses the SAME SerpApi key).
+# Best-effort: pulls domain + Google knowledge-panel firmographics + a revenue
+# estimate from result snippets. For tiny startups this data often simply does
+# not exist publicly, so many fields will legitimately come back empty.
+# ---------------------------------------------------------------------------
+# Directory/aggregator sites we should NOT treat as a company's own domain.
+_DIRECTORY_DOMAINS = (
+    "linkedin.com", "crunchbase.com", "wellfound.com", "angel.co", "glassdoor.",
+    "indeed.com", "zoominfo.com", "rocketreach.co", "pitchbook.com", "bloomberg.com",
+    "facebook.com", "twitter.com", "x.com", "instagram.com", "youtube.com",
+    "wikipedia.org", "github.com", "tracxn.com", "growjo.com", "theorg.com",
+    "apollo.io", "lusha.com", "leadiq.com", "signalhire.com", "ziprecruiter.com",
+    "dice.com", "builtin.com", "levels.fyi", "comparably.com", "owler.com",
+)
+
+
+def _domain_of(url: str) -> str:
+    if not url:
+        return ""
+    u = re.sub(r"^https?://", "", url).split("/")[0]
+    return u[4:] if u.startswith("www.") else u
+
+
+def _num(s):
+    try:
+        return int(str(s).replace(",", "").strip())
+    except Exception:
+        return None
+
+
+def _parse_employees(text: str):
+    """Return (numeric_upper_bound, human_label) from things like
+    '11-50 employees', '201 to 500 employees', '1,000+ employees'."""
+    if not text:
+        return None, ""
+    m = re.search(r"([\d,]+)\s*(?:[-–to]+\s*([\d,]+))?\s*\+?\s*employees", text, re.I)
+    if not m:
+        return None, ""
+    lo, hi = _num(m.group(1)), _num(m.group(2))
+    upper = hi or lo
+    label = m.group(0).strip()
+    return upper, label
+
+
+def _parse_revenue(text: str):
+    """Best-effort revenue string near the word 'revenue'."""
+    if not text:
+        return ""
+    m = re.search(r"(\$[\d.,]+\s?(?:billion|million|thousand|[bmk])?)", text, re.I)
+    if m and "revenue" in text.lower():
+        return m.group(1).strip()
+    return ""
+
+
+def web_enrich_company(name: str, gl=None, log=print):
+    """One Google search per company; parse firmographics. Returns the same
+    shape as apollo.enrich_company so the pipeline can use either."""
+    if config.SERPAPI_MOCK or not name:
+        return {}
+    gl = gl or config.SERPAPI_GL
+    params = {
+        "engine": "google",
+        "q": f"{name} company revenue employees",
+        "hl": config.SERPAPI_HL,
+        "gl": gl,
+        "api_key": config.SERPAPI_KEY,
+    }
+    try:
+        with _client() as client:
+            data = client.get(config.SERPAPI_BASE, params=params).json()
+    except Exception as e:
+        log(f"  ! web enrich failed for '{name}': {e}")
+        return {}
+    if data.get("error"):
+        log(f"  ! web enrich error for '{name}': {data['error']}")
+        return {}
+
+    kg = data.get("knowledge_graph") or {}
+    organic = data.get("organic_results") or []
+    answer = (data.get("answer_box") or {})
+
+    # Domain: prefer KG website, else first organic that isn't a directory site.
+    domain = _domain_of(kg.get("website", ""))
+    if not domain:
+        for o in organic:
+            d = _domain_of(o.get("link", ""))
+            if d and not any(bad in d for bad in _DIRECTORY_DOMAINS):
+                domain = d
+                break
+
+    # Founded year, industry, about from the knowledge panel (keys vary).
+    founded = None
+    industry = ""
+    about = kg.get("description", "") or ""
+    for k, v in kg.items():
+        kl = k.lower()
+        if founded is None and "found" in kl:
+            ym = re.search(r"(19|20)\d{2}", str(v))
+            if ym:
+                founded = int(ym.group(0))
+        if not industry and ("type" in kl or "industry" in kl):
+            industry = str(v)
+
+    # Employees + revenue: scan KG values, the answer box, and snippets.
+    blob = " ".join([
+        " ".join(f"{k}: {v}" for k, v in kg.items()),
+        answer.get("answer", "") or answer.get("snippet", "") or "",
+        " ".join(o.get("snippet", "") for o in organic[:5]),
+    ])
+    emp_upper, emp_label = _parse_employees(blob)
+    revenue = _parse_revenue(blob)
+
+    return {
+        "apollo_org_id": None,
+        "domain": domain,
+        "industry": industry.strip(),
+        "estimated_employees": emp_upper,
+        "employees_label": emp_label,
+        "annual_revenue": None,
+        "annual_revenue_printed": revenue,
+        "founded_year": founded,
+        "total_funding": "",
+        "about": (about or "")[:500],
+        "keywords": [],
+        "source": "web",
+    }
 
 
 # ---------------------------------------------------------------------------
