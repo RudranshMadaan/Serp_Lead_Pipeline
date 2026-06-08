@@ -25,6 +25,11 @@ def run_pipeline(job, params):
         max_emp = int(params.get("max_employees", config.DEFAULT_MAX_EMPLOYEES))
         enrich_people = bool(params.get("enrich_people", False))
         drop_staffing = bool(params.get("drop_staffing", True))
+        enrich_web = bool(params.get("enrich_web", False))
+        country = params.get("country", "United States")
+        remote = bool(params.get("remote", True))
+        geo = config.COUNTRY_OPTIONS.get(country, {"gl": config.SERPAPI_GL,
+                                                   "location": config.SERPAPI_LOCATION})
 
         job["status"] = "running"
         job["stage"] = "search"
@@ -32,14 +37,21 @@ def run_pipeline(job, params):
             mode = "MOCK (all synthetic)"
         else:
             serp_s = "LIVE" if not config.SERPAPI_MOCK else "mock"
-            apollo_s = "LIVE" if config.APOLLO_ENABLED else "OFF (blank firmographics)"
-            mode = f"SerpApi {serp_s} · Apollo {apollo_s}"
-        log(f"Run started — {mode}. {len(queries)} queries, window {max_hours}h.")
+            if config.APOLLO_ENABLED:
+                enr = "Apollo LIVE"
+            elif enrich_web and not config.SERPAPI_MOCK:
+                enr = "web-enrich (SerpApi)"
+            else:
+                enr = "enrichment OFF (blank firmographics)"
+            mode = f"SerpApi {serp_s} · {enr}"
+        log(f"Run started — {mode}. {len(queries)} queries, {country}, "
+            f"{'remote-only, ' if remote else ''}window {max_hours}h.")
 
         # ---- Stage 1: search ----------------------------------------------
         all_jobs = []
         for q in queries:
-            raw = serp.search_jobs(q, log=log)
+            raw = serp.search_jobs(q, gl=geo["gl"], location=geo["location"],
+                                   remote=remote, log=log)
             norm = serp.normalize_jobs(raw, q, max_hours, platforms, log=log)
             log(f"  '{q}': {len(raw)} fetched -> {len(norm)} within {max_hours}h"
                 + (f" on {platforms}" if platforms else ""))
@@ -65,12 +77,24 @@ def run_pipeline(job, params):
 
         # ---- Stage 3: enrich + classify -----------------------------------
         job["stage"] = "enrich"
-        if not config.APOLLO_ENABLED and not config.APOLLO_MOCK:
-            log("  Apollo off — skipping firmographic enrichment "
-                "(revenue/employees/industry will be blank).")
+        apollo_on = config.APOLLO_ENABLED or config.APOLLO_MOCK
+        web_on = enrich_web and not config.SERPAPI_MOCK
+        if not apollo_on and not web_on:
+            log("  Enrichment off — firmographic columns will be blank. "
+                "Add an Apollo key, or tick 'Enrich via web search'.")
+        elif web_on and not apollo_on:
+            log("  Web enrichment ON (SerpApi) — 1 extra search per company; "
+                "values are estimates and small startups may stay blank.")
         enriched = []
         for i, c in enumerate(companies, 1):
-            firm = apollo.enrich_company(c["company_name"], log=log) or {}
+            firm = {}
+            if apollo_on:
+                firm = apollo.enrich_company(c["company_name"], log=log) or {}
+            if web_on and not firm.get("estimated_employees"):
+                web = serp.web_enrich_company(c["company_name"], gl=geo["gl"], log=log) or {}
+                for k, v in web.items():       # apollo wins; web fills the gaps
+                    if not firm.get(k):
+                        firm[k] = v
             c.update({
                 "domain": firm.get("domain", ""),
                 "industry": firm.get("industry", ""),
@@ -80,9 +104,10 @@ def run_pipeline(job, params):
                     or (f"${firm['annual_revenue']:,}" if isinstance(firm.get("annual_revenue"), (int, float)) else ""),
                 "founded_year": firm.get("founded_year"),
                 "total_funding": firm.get("total_funding") or "",
-                "about": firm.get("about", ""),
+                "about": firm.get("about", "") or c.get("description", "")[:300],
                 "keywords": firm.get("keywords", []),
                 "apollo_org_id": firm.get("apollo_org_id"),
+                "data_source": firm.get("source", "apollo" if firm and apollo_on else ("web" if firm else "")),
             })
             classify.classify(c)
             c["role_bucket"] = classify.role_bucket(c["job_title"])
