@@ -106,6 +106,13 @@
       </div>
 
       <div class="group">
+        <label>Location &amp; type</label>
+        <select id="country" style="width:100%;font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:8px 9px;border-radius:2px;"></select>
+        <label class="chk" style="margin-top:8px;"><input type="checkbox" id="remote" checked>Remote only</label>
+        <p class="hint">Set here instead of typing "remote" or "in US" into the query.</p>
+      </div>
+
+      <div class="group">
         <label>Source platforms</label>
         <div class="platforms" id="platforms">
           <label class="chk"><input type="checkbox" value="linkedin">LinkedIn</label>
@@ -139,6 +146,7 @@
       <div class="group">
         <label>Options</label>
         <label class="chk"><input type="checkbox" id="dropStaffing" checked>Drop staffing / IT-services middlemen</label>
+        <label class="chk"><input type="checkbox" id="enrichWeb">Enrich firmographics via web search (SerpApi)</label>
         <label class="chk"><input type="checkbox" id="enrichPeople">Look up leadership contacts (Apollo credits)</label>
       </div>
     </div>
@@ -208,6 +216,8 @@ async function init(){
   $("maxHours").value = cfg.defaults.max_hours;
   $("minEmp").value = cfg.defaults.min_employees;
   $("maxEmp").value = cfg.defaults.max_employees;
+  const sel = $("country");
+  sel.innerHTML = (cfg.countries||["United States"]).map(c=>`<option>${c}</option>`).join("");
   AUTH_REQUIRED = cfg.auth_required;
   const b = $("modeBadge");
   b.textContent = cfg.mode_label;
@@ -255,10 +265,13 @@ async function run(){
   const body = {
     queries: $("queries").value.split("\n").map(s=>s.trim()).filter(Boolean),
     platforms: selectedPlatforms(),
+    country: $("country").value,
+    remote: $("remote").checked,
     max_hours: +$("maxHours").value,
     min_employees: +$("minEmp").value,
     max_employees: +$("maxEmp").value,
     enrich_people: $("enrichPeople").checked,
+    enrich_web: $("enrichWeb").checked,
     drop_staffing: $("dropStaffing").checked,
   };
   $("runBtn").disabled=true; $("runBtn").textContent="Running…";
